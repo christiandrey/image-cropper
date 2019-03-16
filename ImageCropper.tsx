@@ -302,10 +302,10 @@ const styles = StyleSheet.create({
 		position: "absolute",
 		width: cropperWidth,
 		height: cropperHeight,
-		borderRadius: 7,
+		borderRadius: 12,
 		top: cropperPositionTop,
 		left: cropperPositionLeft,
-		borderWidth: 2.5,
+		borderWidth: 2,
 		borderStyle: "dashed",
 		borderColor: "white",
 		backgroundColor: "rgba(0,0,0,0.2)"
