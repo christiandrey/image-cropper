@@ -29,6 +29,7 @@ export default class App extends Component<Props> {
 					imageURL="https://cdn.dribbble.com/users/94953/screenshots/3189793/cameraicons.png"
 					imageHeight={600}
 					imageWidth={800}
+					aspectRatio={4 / 3}
 					accentColor="#a62124"
 					onDoneEditing={(uri, base64) => console.log(uri, base64)}
 				/>

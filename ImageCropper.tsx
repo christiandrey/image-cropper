@@ -23,19 +23,14 @@ import {
 } from "react-native";
 import interpolate from "polate-js";
 
-const deviceWidth = Dimensions.get("window").width;
-const deviceHeight = Dimensions.get("window").height;
-
-const cropperWidth = deviceWidth * 0.75;
-const cropperHeight = deviceWidth * 0.75;
-
-const cropperPositionTop = deviceHeight / 2 - cropperHeight * 0.5;
-const cropperPositionLeft = deviceWidth / 2 - cropperWidth * 0.5;
+const DEVICE_WIDTH = Dimensions.get("window").width;
+const DEVICE_HEIGHT = Dimensions.get("window").height;
 
 interface IImageCropperProps {
 	imageURL: string;
 	imageWidth: number;
 	imageHeight: number;
+	aspectRatio?: number;
 	accentColor?: string;
 	toolBarTextStyle?: RegisteredStyle<ViewStyle> | ViewStyle;
 	onDoneEditing: (uri: string, base64ImageData: string) => void;
@@ -66,14 +61,16 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 		super(props);
 
 		this.state = {
-			top: (deviceHeight - this.getInitialHeight()) / 2,
-			left: (deviceWidth - this.getScaledWidth(this.getInitialHeight())) / 2,
+			top: (DEVICE_HEIGHT - this.getInitialHeight()) / 2,
+			left: (DEVICE_WIDTH - this.getScaledWidth(this.getInitialHeight())) / 2,
 			scaleRangeValue: this.defaultScale,
 			scaleRangeValueDelta: 0,
 			isScaling: false,
 			isModalVisible: false
 		} as IImageCropperState;
 	}
+
+	static defaultProps: IImageCropperProps;
 
 	positionPanResponder: PanResponderInstance;
 	scalePanResponder: PanResponderInstance;
@@ -84,7 +81,7 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 	leftValue: number;
 
 	scaleRangeMin: number = 0;
-	scaleRangeMax: number = deviceWidth - 188;
+	scaleRangeMax: number = DEVICE_WIDTH - 188;
 
 	defaultScale = this.scaleRangeMax / 2;
 
@@ -106,7 +103,41 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 	};
 
 	getInitialHeight = () => {
-		return cropperHeight;
+		return this.getCropperHeight();
+	};
+
+	getScaleRangeCappedValue = (value: number) => {
+		if (value <= this.scaleRangeMin) return this.scaleRangeMin + 1;
+		if (value >= this.scaleRangeMax) return this.scaleRangeMax;
+
+		return value;
+	};
+
+	getScaleLevel = () => {
+		const { scaleRangeValue, scaleRangeValueDelta } = this.state;
+		const cappedValue = this.getScaleRangeCappedValue(scaleRangeValue + scaleRangeValueDelta);
+		return parseFloat(
+			interpolate(cappedValue, {
+				inputRange: [0, this.scaleRangeMax],
+				outputRange: [1, 2]
+			}).toString()
+		);
+	};
+
+	getCropperWidth = () => {
+		return DEVICE_WIDTH * 0.75;
+	};
+
+	getCropperHeight = () => {
+		return this.getCropperWidth() * this.props.aspectRatio;
+	};
+
+	getCropperPositionX = () => {
+		return DEVICE_WIDTH / 2 - this.getCropperWidth() * 0.5;
+	};
+
+	getCropperPositionY = () => {
+		return DEVICE_HEIGHT / 2 - this.getCropperHeight() * 0.5;
 	};
 
 	calculateDistance = (x1: number, y1: number, x2: number, y2: number) => {
@@ -145,38 +176,15 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 		return value - (scale - 1) * this.getInitialHeight() * 0.5;
 	};
 
-	getScaleRangeCappedValue = (value: number) => {
-		if (value <= this.scaleRangeMin) return this.scaleRangeMin + 1;
-		if (value >= this.scaleRangeMax) return this.scaleRangeMax;
-
-		return value;
-	};
-
-	getScaleLevel = () => {
-		const { scaleRangeValue, scaleRangeValueDelta } = this.state;
-		const cappedValue = this.getScaleRangeCappedValue(scaleRangeValue + scaleRangeValueDelta);
-		return parseFloat(
-			interpolate(cappedValue, {
-				inputRange: [0, this.scaleRangeMax],
-				outputRange: [1, 2]
-			}).toString()
-		);
-	};
-
 	toggleIsScaling = () => {
 		LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 		this.setState({ isScaling: !this.state.isScaling });
 	};
 
-	componentWillMount = () => {
-		this.initializePositionPanResponder();
-		this.initializeScalePanResponder();
-	};
-
 	initializePositionPanResponder = () => {
 		this.positionAnimatedValue = new Animated.ValueXY({
-			x: (deviceWidth - this.getScaledWidth(this.getInitialHeight())) / 2,
-			y: (deviceHeight - this.getInitialHeight()) / 2
+			x: (DEVICE_WIDTH - this.getScaledWidth(this.getInitialHeight())) / 2,
+			y: (DEVICE_HEIGHT - this.getInitialHeight()) / 2
 		});
 		this.positionPanResponder = PanResponder.create({
 			onStartShouldSetPanResponder: () => true,
@@ -241,13 +249,13 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 		const { imageURL, onError } = this.props;
 		const normalizedTop = this.normalizePositionY(top);
 		const normalizedLeft = this.normalizePositionX(left);
-		const distanceX = this.calculateDistance(normalizedLeft, 0, cropperPositionLeft, 0);
-		const distanceY = this.calculateDistance(0, normalizedTop, 0, cropperPositionTop);
+		const distanceX = this.calculateDistance(normalizedLeft, 0, this.getCropperPositionX(), 0);
+		const distanceY = this.calculateDistance(0, normalizedTop, 0, this.getCropperPositionY());
 		const offset = {
 			x: this.normalizeSizeX(distanceX),
 			y: this.normalizeSizeY(distanceY),
-			width: this.normalizeSizeX(cropperWidth),
-			height: this.normalizeSizeY(cropperHeight)
+			width: this.normalizeSizeX(this.getCropperWidth()),
+			height: this.normalizeSizeY(this.getCropperHeight())
 		};
 
 		const { x, y, width, height } = offset;
@@ -263,6 +271,11 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 			},
 			error => null
 		);
+	};
+
+	componentWillMount = () => {
+		this.initializePositionPanResponder();
+		this.initializeScalePanResponder();
 	};
 
 	handleDoneEditing = (uri: string, base64ImageData: string) => {
@@ -303,15 +316,25 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 						{...this.positionPanResponder.panHandlers}>
 						<Image style={styles.viewportImage} source={{ uri: "https://cdn.dribbble.com/users/94953/screenshots/3189793/cameraicons.png" }} />
 					</Animated.View>
-					<View style={styles.cropper} pointerEvents="none">
+					<View
+						style={[
+							styles.cropper,
+							{
+								width: this.getCropperWidth(),
+								height: this.getCropperHeight(),
+								top: this.getCropperPositionY(),
+								left: this.getCropperPositionX()
+							}
+						]}
+						pointerEvents="none">
 						{new Array(2).fill(null).map((o, i) => (
-							<View key={i} style={[styles.cropperGridline, styles.cropperGridlineVertical]} />
+							<View key={i} style={[styles.cropperGridline, styles.cropperGridlineVertical, { height: this.getCropperHeight() }]} />
 						))}
 						{new Array(2).fill(null).map((o, i) => (
-							<View key={i} style={[styles.cropperGridline, styles.cropperGridlineHorizontal, { top: (i + 1) * 33 + "%" }]} />
+							<View key={i} style={[styles.cropperGridline, styles.cropperGridlineHorizontal, { top: (i + 1) * 33 + "%", width: this.getCropperWidth() }]} />
 						))}
 					</View>
-					<View style={[styles.toolBar, { backgroundColor: accentColor || "#48a0ec" }]}>
+					<View style={[styles.toolBar, { backgroundColor: accentColor }]}>
 						<TouchableOpacity style={styles.toolBarTextTouchArea} onPress={this.handleCancelEditing} hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}>
 							<Text style={[styles.toolBarText, toolBarTextStyle]}>Cancel</Text>
 						</TouchableOpacity>
@@ -331,7 +354,7 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 										styles.controlsDot,
 										{
 											transform: [{ scale: isScaling ? 1.3 : 1 }],
-											backgroundColor: accentColor || "#48a0ec",
+											backgroundColor: accentColor,
 											left: cappedValue
 										}
 									]}
@@ -347,6 +370,11 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 		);
 	}
 }
+
+ImageCropper.defaultProps = {
+	accentColor: "#48a0ec",
+	aspectRatio: 1
+} as IImageCropperProps;
 
 const styles = StyleSheet.create({
 	container: {
@@ -364,11 +392,7 @@ const styles = StyleSheet.create({
 	} as ImageStyle,
 	cropper: {
 		position: "absolute",
-		width: cropperWidth,
-		height: cropperHeight,
 		borderRadius: 12,
-		top: cropperPositionTop,
-		left: cropperPositionLeft,
 		borderWidth: 2,
 		borderStyle: "dashed",
 		borderColor: "white",
@@ -381,11 +405,9 @@ const styles = StyleSheet.create({
 		backgroundColor: "white"
 	} as ViewStyle,
 	cropperGridlineVertical: {
-		width: 1,
-		height: cropperHeight
+		width: 1
 	} as ViewStyle,
 	cropperGridlineHorizontal: {
-		width: cropperWidth,
 		position: "absolute",
 		left: 0,
 		height: 1
