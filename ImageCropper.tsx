@@ -69,7 +69,7 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 	scaleRangeMin: number = 0;
 	scaleRangeMax: number = deviceWidth - 200;
 
-	defaultScale = this.scaleRangeMax / 2;
+	defaultScale = this.scaleRangeMax * 0;
 
 	getImageAspectRatio = () => {
 		return imageWidth / imageHeight;
@@ -138,6 +138,28 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 		);
 	};
 
+	getTopValueMin = () => {
+		const scale = this.getScaleLevel();
+		return cropperPositionTop - (scale * this.getInitialHeight() - cropperHeight);
+	};
+
+	getTopValueMax = () => {
+		const scale = this.getScaleLevel();
+		return cropperPositionTop + scale * this.getInitialHeight();
+	};
+
+	getLeftValueMin = () => {
+		const scale = this.getScaleLevel();
+		const initialWidth = this.getScaledWidth(this.getInitialHeight());
+		return cropperPositionLeft - (scale * initialWidth - cropperWidth);
+	};
+
+	getLeftValueMax = () => {
+		const scale = this.getScaleLevel();
+		const initialWidth = this.getScaledWidth(this.getInitialHeight());
+		return cropperPositionLeft + scale * initialWidth;
+	};
+
 	toggleIsScaling = () => {
 		LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 		this.setState({ isScaling: !this.state.isScaling });
@@ -161,12 +183,37 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 			},
 			onPanResponderMove: (e, g) => {
 				const { dx, dy } = g;
+				const { top, left } = this.state;
 				const touches = e.nativeEvent.touches;
 
 				if (touches.length === 1) {
-					this.positionAnimatedValue.setValue({ x: dx, y: dy });
-					this.topValue = dy;
-					this.leftValue = dx;
+					const computedTop = top + dy;
+					const computedLeft = left + dx;
+
+					const normalizedTop = this.normalizePositionY(computedTop);
+					const normalizedLeft = this.normalizePositionX(computedLeft);
+
+					console.log(normalizedTop, normalizedLeft, this.getTopValueMin(), this.getTopValueMax(), this.getLeftValueMin(), this.getLeftValueMax());
+
+					if (
+						normalizedTop >= this.getTopValueMin() &&
+						normalizedTop <= cropperPositionTop &&
+						normalizedLeft >= this.getLeftValueMin() &&
+						normalizedLeft <= cropperPositionLeft
+					) {
+						this.positionAnimatedValue.setValue({ x: dx, y: dy });
+						this.topValue = dy;
+						this.leftValue = dx;
+					}
+
+					// if (normalizedLeft >= this.getLeftValueMin() && normalizedLeft <= this.getLeftValueMax()) {
+					// 	this.positionAnimatedValue.setValue({ x: dx, y: dy });
+					// 	this.topValue = dy;
+					// 	this.leftValue = dx;
+					// }
+
+					// this.positionAnimatedValue.setValue({ x: dx, y: 0 });
+					// this.leftValue = dx;
 					return;
 				}
 			},
@@ -176,10 +223,21 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 				const computedTop = top + this.topValue;
 				const computedLeft = left + this.leftValue;
 
-				this.setState({
-					top: computedTop,
-					left: computedLeft
-				});
+				const normalizedTop = this.normalizePositionY(computedTop);
+				const normalizedLeft = this.normalizePositionX(computedLeft);
+
+				if (
+					normalizedTop >= this.getTopValueMin() &&
+					normalizedTop <= cropperPositionTop &&
+					normalizedLeft >= this.getLeftValueMin() &&
+					normalizedLeft <= cropperPositionLeft
+				) {
+					console.log("jere");
+					this.setState({
+						top: computedTop,
+						left: computedLeft
+					});
+				}
 			}
 		});
 	};
