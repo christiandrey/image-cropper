@@ -17,7 +17,9 @@ import {
 	TouchableOpacity,
 	TextStyle,
 	RegisteredStyle,
-	Vibration
+	Vibration,
+	Modal,
+	ActivityIndicator
 } from "react-native";
 import interpolate from "polate-js";
 
@@ -46,6 +48,7 @@ interface IImageCropperState {
 	left: number;
 	scaleRangeValue: number;
 	scaleRangeValueDelta: number;
+	isCropping: boolean;
 	isScaling: boolean;
 	isModalVisible?: boolean;
 }
@@ -67,7 +70,8 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 			left: (deviceWidth - this.getScaledWidth(this.getInitialHeight())) / 2,
 			scaleRangeValue: this.defaultScale,
 			scaleRangeValueDelta: 0,
-			isScaling: false
+			isScaling: false,
+			isModalVisible: false
 		} as IImageCropperState;
 	}
 
@@ -84,9 +88,13 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 
 	defaultScale = this.scaleRangeMax / 2;
 
-	show = () => {};
+	show = () => {
+		this.setState({ isModalVisible: true });
+	};
 
-	dismiss = () => {};
+	dismiss = () => {
+		this.setState({ isModalVisible: false });
+	};
 
 	getImageAspectRatio = () => {
 		return this.props.imageWidth / this.props.imageHeight;
@@ -155,11 +163,6 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 		);
 	};
 
-	getScaleMarkingsArray = () => {
-		const count = Math.round((deviceWidth - 94) / 40);
-		return new Array(5).fill(null);
-	};
-
 	toggleIsScaling = () => {
 		LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 		this.setState({ isScaling: !this.state.isScaling });
@@ -176,6 +179,7 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 			y: (deviceHeight - this.getInitialHeight()) / 2
 		});
 		this.positionPanResponder = PanResponder.create({
+			onStartShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponderCapture: () => true,
 			onPanResponderGrant: (e, g) => {
@@ -208,6 +212,7 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 
 	initializeScalePanResponder = () => {
 		this.scalePanResponder = PanResponder.create({
+			onStartShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponderCapture: () => true,
 			onPanResponderGrant: (event, gestureState) => {
@@ -225,11 +230,13 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 				const { scaleRangeValue, scaleRangeValueDelta } = this.state;
 				this.setState({ scaleRangeValue: scaleRangeValue + scaleRangeValueDelta, scaleRangeValueDelta: 0 });
 				this.toggleIsScaling();
-			}
+			},
+			onPanResponderEnd: () => true
 		});
 	};
 
 	cropImage = () => {
+		this.setState({ isCropping: true });
 		const { top, left } = this.state;
 		const { imageURL, onError } = this.props;
 		const normalizedTop = this.normalizePositionY(top);
@@ -260,77 +267,83 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 
 	handleDoneEditing = (uri: string, base64ImageData: string) => {
 		const { onDoneEditing } = this.props;
+		this.setState({ isCropping: false });
 		onDoneEditing(uri, base64ImageData);
+		this.dismiss();
 	};
 
 	handleCancelEditing = () => {
 		const { onCancelEditing } = this.props;
 		!!onCancelEditing && onCancelEditing();
+		this.dismiss();
 	};
 
 	render() {
-		const { isScaling, scaleRangeValue, scaleRangeValueDelta } = this.state;
+		const { isScaling, scaleRangeValue, scaleRangeValueDelta, isModalVisible, isCropping } = this.state;
 		const { accentColor, toolBarTextStyle } = this.props;
 		const cappedValue = this.getScaleRangeCappedValue(scaleRangeValue + scaleRangeValueDelta);
 
 		return (
-			<View style={styles.container}>
-				<Animated.View
-					style={[
-						styles.viewport,
-						{
-							height: this.getInitialHeight(),
-							width: this.getScaledWidth(this.getInitialHeight()),
-							transform: [
-								{
-									scale: this.getScaleLevel()
-								}
-							]
-						},
-						this.positionAnimatedValue.getLayout()
-					]}
-					{...this.positionPanResponder.panHandlers}>
-					<Image style={styles.viewportImage} source={{ uri: "https://cdn.dribbble.com/users/94953/screenshots/3189793/cameraicons.png" }} />
-				</Animated.View>
-				<View style={styles.cropper} pointerEvents="none">
-					{new Array(2).fill(null).map((o, i) => (
-						<View key={i} style={[styles.cropperGridline, styles.cropperGridlineVertical]} />
-					))}
-					{new Array(2).fill(null).map((o, i) => (
-						<View key={i} style={[styles.cropperGridline, styles.cropperGridlineHorizontal, { top: (i + 1) * 33 + "%" }]} />
-					))}
-				</View>
-				<View style={[styles.toolBar, { backgroundColor: accentColor || "#48a0ec" }]}>
-					<TouchableOpacity style={styles.toolBarTextTouchArea} onPress={this.handleCancelEditing} hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}>
-						<Text style={[styles.toolBarText, toolBarTextStyle]}>Cancel</Text>
-					</TouchableOpacity>
-					<TouchableOpacity style={styles.toolBarTextTouchArea} onPress={this.cropImage} hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}>
-						<Text style={[styles.toolBarText, toolBarTextStyle]}>Apply</Text>
-					</TouchableOpacity>
-				</View>
-				<View style={styles.controls}>
-					<View style={styles.controlsDotInner}>
-						<View style={styles.controlsMinDot} />
-						<View style={styles.controlsDotTrack}>
-							{this.getScaleMarkingsArray().map((o, i) => (
-								<View key={i} style={styles.controlsScaleMarking} />
-							))}
-							<Animated.View
-								style={[
-									styles.controlsDot,
+			<Modal animationType="slide" transparent={false} hardwareAccelerated visible={isModalVisible} onRequestClose={this.dismiss}>
+				<View style={styles.container}>
+					<Animated.View
+						style={[
+							styles.viewport,
+							{
+								height: this.getInitialHeight(),
+								width: this.getScaledWidth(this.getInitialHeight()),
+								transform: [
 									{
-										transform: [{ scale: isScaling ? 1.3 : 1 }],
-										backgroundColor: accentColor || "#48a0ec",
-										left: cappedValue
+										scale: this.getScaleLevel()
 									}
-								]}
-								{...this.scalePanResponder.panHandlers}
-							/>
+								]
+							},
+							this.positionAnimatedValue.getLayout()
+						]}
+						{...this.positionPanResponder.panHandlers}>
+						<Image style={styles.viewportImage} source={{ uri: "https://cdn.dribbble.com/users/94953/screenshots/3189793/cameraicons.png" }} />
+					</Animated.View>
+					<View style={styles.cropper} pointerEvents="none">
+						{new Array(2).fill(null).map((o, i) => (
+							<View key={i} style={[styles.cropperGridline, styles.cropperGridlineVertical]} />
+						))}
+						{new Array(2).fill(null).map((o, i) => (
+							<View key={i} style={[styles.cropperGridline, styles.cropperGridlineHorizontal, { top: (i + 1) * 33 + "%" }]} />
+						))}
+					</View>
+					<View style={[styles.toolBar, { backgroundColor: accentColor || "#48a0ec" }]}>
+						<TouchableOpacity style={styles.toolBarTextTouchArea} onPress={this.handleCancelEditing} hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}>
+							<Text style={[styles.toolBarText, toolBarTextStyle]}>Cancel</Text>
+						</TouchableOpacity>
+						<TouchableOpacity style={styles.toolBarTextTouchArea} onPress={this.cropImage} hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}>
+							<Text style={[styles.toolBarText, toolBarTextStyle]}>Apply</Text>
+						</TouchableOpacity>
+					</View>
+					<View style={styles.controls}>
+						<View style={styles.controlsDotInner}>
+							<View style={styles.controlsMinDot} />
+							<View style={styles.controlsDotTrack}>
+								{new Array(5).fill(null).map((o, i) => (
+									<View key={i} style={styles.controlsScaleMarking} />
+								))}
+								<Animated.View
+									style={[
+										styles.controlsDot,
+										{
+											transform: [{ scale: isScaling ? 1.3 : 1 }],
+											backgroundColor: accentColor || "#48a0ec",
+											left: cappedValue
+										}
+									]}
+									{...this.scalePanResponder.panHandlers}>
+									{isCropping && <ActivityIndicator size="small" color="white" />}
+								</Animated.View>
+							</View>
+							<View style={styles.controlsMaxDot} />
 						</View>
-						<View style={styles.controlsMaxDot} />
 					</View>
 				</View>
-			</View>
+			</Modal>
 		);
 	}
 }
@@ -386,7 +399,8 @@ const styles = StyleSheet.create({
 		flexDirection: "row"
 	} as ViewStyle,
 	toolBarTextTouchArea: {
-		marginLeft: 30
+		marginLeft: 30,
+		flexDirection: "row"
 	} as ViewStyle,
 	toolBarText: {
 		color: "white"
@@ -419,7 +433,9 @@ const styles = StyleSheet.create({
 		height: 24,
 		borderColor: "white",
 		borderWidth: 1.5,
-		position: "absolute"
+		position: "absolute",
+		justifyContent: "center",
+		alignItems: "center"
 	} as ViewStyle,
 	controlsMinDot: {
 		borderRadius: 6,

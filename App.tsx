@@ -9,7 +9,7 @@
  */
 
 import React, { Component } from "react";
-import { Platform, StyleSheet, Text, View } from "react-native";
+import { Platform, StyleSheet, Text, View, Button } from "react-native";
 import { ImageEditor } from "./ImageEditor";
 import { ImageCropper } from "./ImageCropper";
 
@@ -20,10 +20,12 @@ const instructions = Platform.select({
 
 interface Props {}
 export default class App extends Component<Props> {
+	imageCropperRef: ImageCropper;
 	render() {
 		return (
 			<View style={styles.container}>
 				<ImageCropper
+					ref={imageCropperRef => (this.imageCropperRef = imageCropperRef)}
 					imageURL="https://cdn.dribbble.com/users/94953/screenshots/3189793/cameraicons.png"
 					imageHeight={600}
 					imageWidth={800}
@@ -32,7 +34,8 @@ export default class App extends Component<Props> {
 				/>
 				{/* <Text style={styles.welcome}>Welcome to React Native!</Text>
         <Text style={styles.instructions}>To get started, edit App.tsx</Text>
-        <Text style={styles.instructions}>{instructions}</Text> */}
+		  <Text style={styles.instructions}>{instructions}</Text> */}
+				<Button title="Edit image" onPress={() => this.imageCropperRef.show()} />
 			</View>
 		);
 	}
