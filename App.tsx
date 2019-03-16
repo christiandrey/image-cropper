@@ -23,7 +23,13 @@ export default class App extends Component<Props> {
 	render() {
 		return (
 			<View style={styles.container}>
-				<ImageCropper />
+				<ImageCropper
+					imageURL="https://cdn.dribbble.com/users/94953/screenshots/3189793/cameraicons.png"
+					imageHeight={600}
+					imageWidth={800}
+					accentColor="#a62124"
+					onDoneEditing={(uri, base64) => console.log(uri, base64)}
+				/>
 				{/* <Text style={styles.welcome}>Welcome to React Native!</Text>
         <Text style={styles.instructions}>To get started, edit App.tsx</Text>
         <Text style={styles.instructions}>{instructions}</Text> */}

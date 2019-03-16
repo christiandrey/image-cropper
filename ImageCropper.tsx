@@ -16,7 +16,8 @@ import {
 	Text,
 	TouchableOpacity,
 	TextStyle,
-	RegisteredStyle
+	RegisteredStyle,
+	Vibration
 } from "react-native";
 import interpolate from "polate-js";
 
@@ -29,15 +30,15 @@ const cropperHeight = deviceWidth * 0.75;
 const cropperPositionTop = deviceHeight / 2 - cropperHeight * 0.5;
 const cropperPositionLeft = deviceWidth / 2 - cropperWidth * 0.5;
 
-const imageWidth = 800;
-const imageHeight = 600;
-
 interface IImageCropperProps {
 	imageURL: string;
 	imageWidth: number;
 	imageHeight: number;
 	accentColor?: string;
 	toolBarTextStyle?: RegisteredStyle<ViewStyle> | ViewStyle;
+	onDoneEditing: (uri: string, base64ImageData: string) => void;
+	onCancelEditing?: () => void;
+	onError?: (error?: any) => void;
 }
 
 interface IImageCropperState {
@@ -46,6 +47,7 @@ interface IImageCropperState {
 	scaleRangeValue: number;
 	scaleRangeValueDelta: number;
 	isScaling: boolean;
+	isModalVisible?: boolean;
 }
 
 // -----------------------------------------------------------------
@@ -82,8 +84,12 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 
 	defaultScale = this.scaleRangeMax / 2;
 
+	show = () => {};
+
+	dismiss = () => {};
+
 	getImageAspectRatio = () => {
-		return imageWidth / imageHeight;
+		return this.props.imageWidth / this.props.imageHeight;
 	};
 
 	getScaledWidth = (targetHeight: number) => {
@@ -159,10 +165,6 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 		this.setState({ isScaling: !this.state.isScaling });
 	};
 
-	componentDidMount = () => {
-		// imageWidth = this.props.imageWidth;
-	};
-
 	componentWillMount = () => {
 		this.initializePositionPanResponder();
 		this.initializeScalePanResponder();
@@ -209,6 +211,7 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 			onMoveShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponderCapture: () => true,
 			onPanResponderGrant: (event, gestureState) => {
+				Vibration.vibrate(10, false);
 				this.toggleIsScaling();
 			},
 			onPanResponderMove: (event, gestureState) => {
@@ -228,6 +231,7 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 
 	cropImage = () => {
 		const { top, left } = this.state;
+		const { imageURL, onError } = this.props;
 		const normalizedTop = this.normalizePositionY(top);
 		const normalizedLeft = this.normalizePositionX(left);
 		const distanceX = this.calculateDistance(normalizedLeft, 0, cropperPositionLeft, 0);
@@ -242,20 +246,31 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 		const { x, y, width, height } = offset;
 
 		ImageEditor.cropImage(
-			"https://cdn.dribbble.com/users/94953/screenshots/3189793/cameraicons.png",
+			imageURL,
 			{
 				offset: { x, y },
 				size: { width, height }
 			},
 			croppedImageUri => {
-				ImageStore.getBase64ForTag(croppedImageUri, base64ImageData => console.log(base64ImageData), error => null);
+				ImageStore.getBase64ForTag(croppedImageUri, base64ImageData => this.handleDoneEditing(croppedImageUri, base64ImageData), error => !!onError && onError(error));
 			},
 			error => null
 		);
 	};
 
+	handleDoneEditing = (uri: string, base64ImageData: string) => {
+		const { onDoneEditing } = this.props;
+		onDoneEditing(uri, base64ImageData);
+	};
+
+	handleCancelEditing = () => {
+		const { onCancelEditing } = this.props;
+		!!onCancelEditing && onCancelEditing();
+	};
+
 	render() {
 		const { isScaling, scaleRangeValue, scaleRangeValueDelta } = this.state;
+		const { accentColor, toolBarTextStyle } = this.props;
 		const cappedValue = this.getScaleRangeCappedValue(scaleRangeValue + scaleRangeValueDelta);
 
 		return (
@@ -285,12 +300,14 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 						<View key={i} style={[styles.cropperGridline, styles.cropperGridlineHorizontal, { top: (i + 1) * 33 + "%" }]} />
 					))}
 				</View>
-				<View style={styles.toolBar}>
-					<TouchableOpacity onPress={this.cropImage}>
-						<Text style={styles.toolBarText}>Apply</Text>
+				<View style={[styles.toolBar, { backgroundColor: accentColor || "#48a0ec" }]}>
+					<TouchableOpacity style={styles.toolBarTextTouchArea} onPress={this.handleCancelEditing} hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}>
+						<Text style={[styles.toolBarText, toolBarTextStyle]}>Cancel</Text>
+					</TouchableOpacity>
+					<TouchableOpacity style={styles.toolBarTextTouchArea} onPress={this.cropImage} hitSlop={{ top: 10, left: 10, right: 10, bottom: 10 }}>
+						<Text style={[styles.toolBarText, toolBarTextStyle]}>Apply</Text>
 					</TouchableOpacity>
 				</View>
-				{/* <Button title="Crop" onPress={this.cropImage} /> */}
 				<View style={styles.controls}>
 					<View style={styles.controlsDotInner}>
 						<View style={styles.controlsMinDot} />
@@ -303,6 +320,7 @@ export class ImageCropper extends React.PureComponent<IImageCropperProps, IImage
 									styles.controlsDot,
 									{
 										transform: [{ scale: isScaling ? 1.3 : 1 }],
+										backgroundColor: accentColor || "#48a0ec",
 										left: cappedValue
 									}
 								]}
@@ -362,9 +380,8 @@ const styles = StyleSheet.create({
 	toolBar: {
 		height: 48,
 		width: "100%",
-		paddingHorizontal: 40,
+		paddingHorizontal: 30,
 		justifyContent: "flex-end",
-		backgroundColor: "#48a0ec",
 		alignItems: "center",
 		flexDirection: "row"
 	} as ViewStyle,
@@ -402,7 +419,6 @@ const styles = StyleSheet.create({
 		height: 24,
 		borderColor: "white",
 		borderWidth: 1.5,
-		backgroundColor: "#48a0ec",
 		position: "absolute"
 	} as ViewStyle,
 	controlsMinDot: {
