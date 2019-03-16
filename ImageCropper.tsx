@@ -9,11 +9,14 @@ import {
 	Image,
 	PanResponderInstance,
 	PanResponder,
-	Button,
 	ImageEditor,
 	ImageStore,
 	UIManager,
-	LayoutAnimation
+	LayoutAnimation,
+	Text,
+	TouchableOpacity,
+	TextStyle,
+	RegisteredStyle
 } from "react-native";
 import interpolate from "polate-js";
 
@@ -29,6 +32,14 @@ const cropperPositionLeft = deviceWidth / 2 - cropperWidth * 0.5;
 const imageWidth = 800;
 const imageHeight = 600;
 
+interface IImageCropperProps {
+	imageURL: string;
+	imageWidth: number;
+	imageHeight: number;
+	accentColor?: string;
+	toolBarTextStyle?: RegisteredStyle<ViewStyle> | ViewStyle;
+}
+
 interface IImageCropperState {
 	top: number;
 	left: number;
@@ -42,11 +53,11 @@ interface IImageCropperState {
 // -----------------------------------------------------------------
 UIManager.setLayoutAnimationEnabledExperimental && UIManager.setLayoutAnimationEnabledExperimental(true);
 
-export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
+export class ImageCropper extends React.PureComponent<IImageCropperProps, IImageCropperState> {
 	/**
 	 *
 	 */
-	constructor(props: Readonly<{}>) {
+	constructor(props: Readonly<IImageCropperProps>) {
 		super(props);
 
 		this.state = {
@@ -67,7 +78,7 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 	leftValue: number;
 
 	scaleRangeMin: number = 0;
-	scaleRangeMax: number = deviceWidth - 200;
+	scaleRangeMax: number = deviceWidth - 188;
 
 	defaultScale = this.scaleRangeMax / 2;
 
@@ -138,9 +149,18 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 		);
 	};
 
+	getScaleMarkingsArray = () => {
+		const count = Math.round((deviceWidth - 94) / 40);
+		return new Array(5).fill(null);
+	};
+
 	toggleIsScaling = () => {
 		LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
 		this.setState({ isScaling: !this.state.isScaling });
+	};
+
+	componentDidMount = () => {
+		// imageWidth = this.props.imageWidth;
 	};
 
 	componentWillMount = () => {
@@ -257,12 +277,27 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 					{...this.positionPanResponder.panHandlers}>
 					<Image style={styles.viewportImage} source={{ uri: "https://cdn.dribbble.com/users/94953/screenshots/3189793/cameraicons.png" }} />
 				</Animated.View>
-				<View style={styles.cropper} pointerEvents="none" />
-				<Button title="Crop" onPress={this.cropImage} />
+				<View style={styles.cropper} pointerEvents="none">
+					{new Array(2).fill(null).map((o, i) => (
+						<View key={i} style={[styles.cropperGridline, styles.cropperGridlineVertical]} />
+					))}
+					{new Array(2).fill(null).map((o, i) => (
+						<View key={i} style={[styles.cropperGridline, styles.cropperGridlineHorizontal, { top: (i + 1) * 33 + "%" }]} />
+					))}
+				</View>
+				<View style={styles.toolBar}>
+					<TouchableOpacity onPress={this.cropImage}>
+						<Text style={styles.toolBarText}>Apply</Text>
+					</TouchableOpacity>
+				</View>
+				{/* <Button title="Crop" onPress={this.cropImage} /> */}
 				<View style={styles.controls}>
 					<View style={styles.controlsDotInner}>
 						<View style={styles.controlsMinDot} />
 						<View style={styles.controlsDotTrack}>
+							{this.getScaleMarkingsArray().map((o, i) => (
+								<View key={i} style={styles.controlsScaleMarking} />
+							))}
 							<Animated.View
 								style={[
 									styles.controlsDot,
@@ -306,8 +341,39 @@ const styles = StyleSheet.create({
 		borderWidth: 2,
 		borderStyle: "dashed",
 		borderColor: "white",
-		backgroundColor: "rgba(0,0,0,0.2)"
+		backgroundColor: "rgba(0,0,0,0.2)",
+		flexDirection: "row",
+		justifyContent: "space-evenly"
 	} as ViewStyle,
+	cropperGridline: {
+		opacity: 0.1,
+		backgroundColor: "white"
+	} as ViewStyle,
+	cropperGridlineVertical: {
+		width: 1,
+		height: cropperHeight
+	} as ViewStyle,
+	cropperGridlineHorizontal: {
+		width: cropperWidth,
+		position: "absolute",
+		left: 0,
+		height: 1
+	} as ViewStyle,
+	toolBar: {
+		height: 48,
+		width: "100%",
+		paddingHorizontal: 40,
+		justifyContent: "flex-end",
+		backgroundColor: "#48a0ec",
+		alignItems: "center",
+		flexDirection: "row"
+	} as ViewStyle,
+	toolBarTextTouchArea: {
+		marginLeft: 30
+	} as ViewStyle,
+	toolBarText: {
+		color: "white"
+	} as TextStyle,
 	controls: {
 		height: 72,
 		width: "100%",
@@ -325,14 +391,17 @@ const styles = StyleSheet.create({
 	controlsDotTrack: {
 		height: "100%",
 		flex: 1,
+		flexDirection: "row",
+		alignItems: "center",
 		marginHorizontal: 20,
-		justifyContent: "center"
+		justifyContent: "space-around"
 	} as ViewStyle,
 	controlsDot: {
 		borderRadius: 12,
 		width: 24,
 		height: 24,
-		borderWidth: 1,
+		borderColor: "white",
+		borderWidth: 1.5,
 		backgroundColor: "#48a0ec",
 		position: "absolute"
 	} as ViewStyle,
@@ -349,5 +418,11 @@ const styles = StyleSheet.create({
 		height: 24,
 		borderWidth: 1,
 		borderColor: "white"
+	} as ViewStyle,
+	controlsScaleMarking: {
+		width: 4,
+		height: 8,
+		backgroundColor: "white",
+		borderRadius: 2
 	} as ViewStyle
 });
