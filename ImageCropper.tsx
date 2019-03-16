@@ -62,7 +62,6 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 	scalePanResponder: PanResponderInstance;
 
 	positionAnimatedValue: Animated.ValueXY;
-	scaleAnimatedValue: Animated.Value;
 
 	topValue: number;
 	leftValue: number;
@@ -186,7 +185,6 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 	};
 
 	initializeScalePanResponder = () => {
-		this.scaleAnimatedValue = new Animated.Value(this.defaultScale);
 		this.scalePanResponder = PanResponder.create({
 			onMoveShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponderCapture: () => true,
