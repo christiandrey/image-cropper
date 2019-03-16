@@ -9,7 +9,6 @@ import {
 	Image,
 	PanResponderInstance,
 	PanResponder,
-	NativeTouchEvent,
 	Button,
 	ImageEditor,
 	ImageStore,
@@ -33,7 +32,6 @@ const imageHeight = 600;
 interface IImageCropperState {
 	top: number;
 	left: number;
-	scale: number;
 	scaleRangeValue: number;
 	scaleRangeValueDelta: number;
 	isScaling: boolean;
@@ -54,8 +52,7 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 		this.state = {
 			top: (deviceHeight - this.getInitialHeight()) / 2,
 			left: (deviceWidth - this.getScaledWidth(this.getInitialHeight())) / 2,
-			scale: 1,
-			scaleRangeValue: 0,
+			scaleRangeValue: this.defaultScale,
 			scaleRangeValueDelta: 0,
 			isScaling: false
 		} as IImageCropperState;
@@ -72,6 +69,8 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 
 	scaleRangeMin: number = 0;
 	scaleRangeMax: number = deviceWidth - 200;
+
+	defaultScale = this.scaleRangeMax / 2;
 
 	getImageAspectRatio = () => {
 		return imageWidth / imageHeight;
@@ -187,7 +186,7 @@ export class ImageCropper extends React.PureComponent<{}, IImageCropperState> {
 	};
 
 	initializeScalePanResponder = () => {
-		this.scaleAnimatedValue = new Animated.Value(0);
+		this.scaleAnimatedValue = new Animated.Value(this.defaultScale);
 		this.scalePanResponder = PanResponder.create({
 			onMoveShouldSetPanResponder: () => true,
 			onMoveShouldSetPanResponderCapture: () => true,
